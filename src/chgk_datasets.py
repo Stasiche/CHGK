@@ -1,22 +1,33 @@
-from transformers import GPT2Tokenizer
+from transformers import GPT2TokenizerFast
 from torch.utils.data import Dataset
+from typing import List
 
 
 class GPT2SmallDataset(Dataset):
     model_name = "sberbank-ai/rugpt3small_based_on_gpt2"
 
-    def __init__(self, txt_path):
-        tokenizer = GPT2Tokenizer.from_pretrained(self.model_name)
-        tokenizer.pad_token = 0
-        with open(txt_path, 'r') as f:
-            text = f.readlines()
-        self.tokens = tokenizer(text, padding=True, truncation=True, max_length=106)
+    def __init__(self, txt_path: str):
+        tokenizer = GPT2TokenizerFast.from_pretrained(self.model_name)
+        tokenizer.pad_token = "<pad>"
+
+        samples = self._prep_samples(txt_path)
+        self.tokens = tokenizer(samples, padding=True, truncation=True, max_length=206)
+
+        print('Done tokenizing')
 
     def __len__(self):
-        return len(self.tokens)
+        return len(self.tokens["input_ids"])
 
     def __getitem__(self, idx):
         return {
-                'input_ids': self.tokens['input_ids'][idx],
-                'attention_mask': self.tokens['attention_mask'][idx],
-               }
+            "input_ids": self.tokens["input_ids"][idx],
+            "attention_mask": self.tokens["attention_mask"][idx],
+            "labels": self.tokens["input_ids"][idx],
+        }
+
+    def _prep_samples(self, data_path: str) -> List[str]:
+        with open(data_path, "r", encoding="utf-8") as f:
+            text = f.read()
+
+        text = list(map(lambda x: x + "?", text.split('?')))
+        return text
