@@ -1,0 +1,7 @@
+torch
+pytorch-lightning
+hydra-core
+wandb
+numpy
+scikit-learn
+transformers
