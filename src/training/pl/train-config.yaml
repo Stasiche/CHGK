@@ -3,15 +3,15 @@ model: "sberbank-ai/rugpt3small_based_on_gpt2"
 seed: 65537
 
 dataset:
-  path: "data/questions_small.txt"
+  path: "data/questions.txt"
   # path: "data/questions.txt"
-  train_size: 0.15
-  train_batch_size: 2
-  val_batch_size: 2
+  train_size: 0.85
+  train_batch_size: 8
+  val_batch_size: 8
 
 
 training:
-  n_gpus: 0
+  n_gpus: 1
   output_dir: "training_output/"
   save_model_dir: "training_output/model/"
 
@@ -22,7 +22,7 @@ training:
     warmup_steps: 200
 
   logging:
-    val_check_interval: 0.1
+    val_check_interval: 0.05
 
     log_steps: 100
     eval_steps: 60
