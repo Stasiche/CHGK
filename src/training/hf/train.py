@@ -1,21 +1,12 @@
-from transformers import GPT2LMHeadModel, GPT2Tokenizer, Trainer, TrainingArguments
-from datasets import load_dataset, load_metric
-from tqdm.auto import tqdm
-from typing import Dict, Any, Optional
+from transformers import Trainer, TrainingArguments
+from datasets import load_metric
 from sklearn.model_selection import train_test_split
-from torch.utils.data import DataLoader, TensorDataset
-from pytorch_lightning.loggers import WandbLogger
-from omegaconf import DictConfig, OmegaConf
+from omegaconf import DictConfig
 
-from src.training.GPT2SberSmall import GPT2SberSmall
-from src.chgk_datasets import GPT2SmallDataset
+from src.training.models.GPT2SberSmall import GPT2SberSmall
+from src.training.utils.chgk_datasets import GPT2SmallDataset
 from definitions import ROOT_PATH
 
-import pytorch_lightning as pl
-import torch.nn.functional as F
-import torch
-import torchmetrics
-import copy
 import hydra
 import os
 
@@ -62,11 +53,11 @@ def train(config: DictConfig) -> None:
         logging_strategy='steps',
         warmup_steps=300,
         seed=config.seed,
-        load_best_model_at_end=True,
-        metric_for_best_model='accuracy',
-        greater_is_better=True,
         report_to="none",
-        no_cuda=config.training.n_gpus == 0
+        no_cuda=config.training.n_gpus == 0,
+        # load_best_model_at_end=True,
+        # metric_for_best_model='accuracy',
+        # greater_is_better=True,
     )
     print('Created args')
 
@@ -76,7 +67,7 @@ def train(config: DictConfig) -> None:
         args=training_args,
         train_dataset=dataset_train,
         eval_dataset=dataset_eval,
-        compute_metrics=compute_metrics
+        # compute_metrics=compute_metrics
     )
     print('Created trainer')
 

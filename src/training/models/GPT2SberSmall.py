@@ -14,7 +14,7 @@ class GPT2SberSmall(torch.nn.Module):
         self.tokenizer.eos_token = "</s>"
 
     def __call__(self, *args, **kwargs):
-        return self.model(*args, **kwargs)
+        return self.forward(*args, **kwargs)
 
     def forward(self, *args, **kwargs):
         return self.model.forward(*args, **kwargs)

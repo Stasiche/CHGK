@@ -1,0 +1,29 @@
+tokenizer: "sberbank-ai/rugpt3small_based_on_gpt2"
+model: "sberbank-ai/rugpt3small_based_on_gpt2"
+seed: 65537
+
+dataset:
+  path: "data/questions_small.txt"
+  # path: "data/questions.txt"
+  train_batch_size: 8
+  eval_batch_size: 8
+
+
+training:
+  n_gpus: 1
+  output_dir: "training_output/"
+  save_model_dir: "training_output/model/"
+
+  params:
+    lr: 2e-5
+    w_decay: 0.01
+    n_epochs: 1
+    warmup_steps: 200
+
+  logging:
+    log_steps: 100
+    eval_steps: 60
+    save_models: 1
+
+hydra:
+  output_subdir: null
