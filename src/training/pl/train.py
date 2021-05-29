@@ -97,8 +97,8 @@ class GPT2Sber(pl.LightningModule):
             TP += self.train_TP
             n_samples += self.train_samples
 
-            self.train_TP += TP
-            self.train_samples += n_samples
+            self.train_TP = TP
+            self.train_samples = n_samples
         else:
             TP += self.val_TP
             n_samples += self.val_samples
@@ -119,7 +119,9 @@ class DataModule(pl.LightningDataModule):
     val_ds: TensorDataset
     tokens: Dict[str, List[int]]
 
-    def __init__(self, tokenizer_path: str, data_path: str, train_batch_size: int, val_batch_size: int, train_size: float):
+    def __init__(
+        self, tokenizer_path: str, data_path: str, train_batch_size: int, val_batch_size: int, train_size: float
+    ):
         super().__init__()
 
         self.tokenizer = GPT2TokenizerFast.from_pretrained(tokenizer_path)
@@ -166,7 +168,7 @@ def train(config: DictConfig) -> None:
         data_path=os.path.join(ROOT_PATH, config.dataset.path),
         train_batch_size=config.dataset.train_batch_size,
         val_batch_size=config.dataset.val_batch_size,
-        train_size=config.dataset.train_size
+        train_size=config.dataset.train_size,
     )
 
     logger = WandbLogger(project="hse_dl_project", log_model=False)
