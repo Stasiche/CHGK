@@ -27,7 +27,8 @@ class GPT2SmallDataset(Dataset):
 
     def _prep_samples(self, data_path: str) -> List[str]:
         with open(data_path, "r", encoding="utf-8") as f:
-            text = f.read()
-
-        text = list(map(lambda x: x + "?", text.split('?')))
+            text = f.readlines()
+            
         return text
+
+
