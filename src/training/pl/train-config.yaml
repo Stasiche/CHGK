@@ -4,7 +4,6 @@ seed: 65537
 
 dataset:
   path: "data/questions.txt"
-  # path: "data/questions.txt"
   train_size: 0.85
   train_batch_size: 8
   val_batch_size: 8
@@ -15,18 +14,21 @@ training:
   output_dir: "training_output/"
   save_model_dir: "training_output/model/"
 
-  params:
+  opt:
     lr: 2e-5
     w_decay: 0.01
-    max_epochs: 3
-    warmup_steps: 200
+    max_epochs: 1
+    warmup_steps: 10000
+    grad_accumulation_steps: 1
+    grad_clip: 1
 
   logging:
     val_check_interval: 0.05
-
+    save_top_k: 2
     log_steps: 100
-    eval_steps: 60
-    save_models: 1
 
 hydra:
-  output_subdir: null
+  run:
+    dir: training_output_data/${now:%Y-%m-%d}/${now:%H-%M-%S}
+output:
+  logger_dir: training_output_data/
