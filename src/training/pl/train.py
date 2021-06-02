@@ -22,8 +22,10 @@ class GPT2Sber(pl.LightningModule):
     def __init__(self, model_path: str, lr: float, w_decay: float):
         super().__init__()
         self.model = GPT2LMHeadModel.from_pretrained(model_path)
-        self.train_TP = 0
-        self.val_TP = 0
+        self.train_TP_top1 = 0
+        self.train_TP_topk = 0
+        self.val_TP_top1 = 0
+        self.val_TP_topk = 0
 
         self.train_samples = 0
         self.val_samples = 0
@@ -47,18 +49,20 @@ class GPT2Sber(pl.LightningModule):
         res = self.model(input_ids, attention_mask=attention_mask, labels=labels)
 
         # calculating metrics
-        train_acc = self._calc_acc(res.logits, labels, True)
+        acc_top1, acc_topk = self._calc_acc(res.logits, labels, True)
         self.train_loss += res.loss.item()
 
         # logging
         self.log("train_loss", self.train_loss / (batch_idx + 1), on_step=True, prog_bar=True, logger=True)
-        self.log("train_acc", train_acc, on_step=True, prog_bar=True, logger=True)
+        self.log("train_acc_top1", acc_top1, on_step=True, prog_bar=True, logger=True)
+        self.log("train_acc_top5", acc_topk, on_step=True, prog_bar=True, logger=True)
 
         return res.loss
 
     def training_epoch_end(self, training_step_outputs):
         self.train_samples = 0
-        self.train_TP = 0
+        self.train_TP_top1 = 0
+        self.train_TP_topk = 0
 
     def validation_step(self, batch, batch_idx):
         # forward
@@ -66,50 +70,81 @@ class GPT2Sber(pl.LightningModule):
         res = self.model(input_ids, attention_mask=attention_mask, labels=labels)
 
         # calculating metrics
-        val_acc = self._calc_acc(res.logits, labels, False)
+        acc_top1, acc_topk = self._calc_acc(res.logits, labels, False)
 
-        return {"loss": res.loss.item(), "acc": val_acc}
+        return {"loss": res.loss.item(), "acc_top1": acc_top1, "acc_topk": acc_topk}
 
     def validation_epoch_end(self, validation_step_outputs):
-        val_epoch_acc = validation_step_outputs[-1]["acc"]
+        epoch_acc_top1 = validation_step_outputs[-1]["acc_top1"]
+        epoch_acc_topk = validation_step_outputs[-1]["acc_topk"]
         val_epoch_loss = sum(map(lambda x: x["loss"], validation_step_outputs)) / len(validation_step_outputs)
 
         self.log("val_loss", val_epoch_loss, on_epoch=True, prog_bar=True, logger=True)
-        self.log("val_acc", val_epoch_acc, on_epoch=True, prog_bar=True, logger=True)
+        self.log("val_acc_top1", epoch_acc_top1, on_epoch=True, prog_bar=True, logger=True)
+        self.log("val_acc_top5", epoch_acc_topk, on_epoch=True, prog_bar=True, logger=True)
 
         self.val_samples = 0
-        self.val_TP = 0
+        self.val_TP_top1 = 0
+        self.val_TP_topk = 0
 
-        return {"val_loss": val_epoch_loss, "val_acc": val_epoch_acc}
+        return {"val_loss": val_epoch_loss, "val_acc_top1": epoch_acc_top1, "val_acc_top5": epoch_acc_topk}
 
-    def _calc_acc(self, logits, labels, is_train) -> float:
+    def _calc_acc(
+        self,
+        logits: torch.Tensor,
+        labels: torch.Tensor,
+        is_train: bool,
+        top_k: int = 5,
+        ignore_index: int = -100,
+        shift: bool = True,
+    ) -> Tuple[float, float]:
         # calc batch TP and n_samples
+        assert logits.ndimension() == labels.ndimension() + 1
+        assert logits.size()[:-1] == labels.size()
+        assert logits.size(-1) >= top_k
+
         with torch.no_grad():
-            preds = logits.argmax(dim=-1).cpu().numpy()
-        labels = labels.cpu().numpy()
+            if shift:
+                logits = logits[..., :-1, :]
+                labels = labels[..., 1:]
 
-        relevant_labels_mask = labels != -100
-        TP_mask = preds[relevant_labels_mask] == labels[relevant_labels_mask]
+            labels = labels.flatten()
+            logits = logits.flatten(end_dim=-2)
 
-        TP = np.count_nonzero(TP_mask)
-        n_samples = np.prod(TP_mask.shape)
+            relevant_labels_mask = labels != ignore_index
+            labels = labels[relevant_labels_mask]
+            logits = logits[relevant_labels_mask, :]
 
-        # accumulate metrics
-        if is_train:
-            TP += self.train_TP
-            n_samples += self.train_samples
+            _, top_k_preds = torch.topk(logits, top_k)
 
-            self.train_TP = TP
-            self.train_samples = n_samples
-        else:
-            TP += self.val_TP
-            n_samples += self.val_samples
+            TP_mask = top_k_preds == labels.unsqueeze(-1).expand_as(top_k_preds)
 
-            self.val_TP = TP
-            self.val_samples = n_samples
+            TP_top1 = TP_mask[:, 0].sum()
+            TP_topk = TP_mask.sum()
 
-        acc = TP / n_samples
-        return acc
+            n_samples = TP_mask.size(0)
+
+            # accumulate metrics
+            if is_train:
+                TP_top1 += self.train_TP_top1
+                TP_topk += self.train_TP_topk
+                n_samples += self.train_samples
+
+                self.train_TP_top1 = TP_top1
+                self.train_TP_topk = TP_topk
+                self.train_samples = n_samples
+            else:
+                TP_top1 += self.val_TP_top1
+                TP_topk += self.val_TP_topk
+                n_samples += self.val_samples
+
+                self.val_TP_top1 = TP_top1
+                self.val_TP_topk = TP_topk
+                self.val_samples = n_samples
+
+            acc_top1 = TP_top1 / n_samples
+            acc_topk = TP_topk / n_samples
+            return acc_top1, acc_topk
 
     def configure_optimizers(self):
         optimizer = torch.optim.Adam(self.model.parameters(), lr=self.lr, weight_decay=self.w_decay)
@@ -188,13 +223,7 @@ def train(config: DictConfig) -> None:
         monitor="val_loss",
         mode="min",
     )
-    stopping_callback = EarlyStopping(
-        monitor="val_loss",
-        min_delta=1e-3,
-        patience=2,
-        verbose=True,
-        mode="min"
-    )
+    stopping_callback = EarlyStopping(monitor="val_loss", min_delta=1e-3, patience=2, verbose=True, mode="min")
 
     logger = WandbLogger(project="hse_dl_project", log_model=True)
 
@@ -208,7 +237,7 @@ def train(config: DictConfig) -> None:
         accelerator=("ddp" if config.training.n_gpus > 0 else None),
         log_every_n_steps=config.training.logging.log_steps,
         logger=logger,
-        callbacks=[lr_logger, checkpoint_callback, stopping_callback]
+        callbacks=[lr_logger, checkpoint_callback, stopping_callback],
     )
     print("Start training...")
     trainer.fit(model, datamodule=data)
