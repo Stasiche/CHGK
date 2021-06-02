@@ -8,8 +8,10 @@ from transformers import GPT2LMHeadModel, GPT2TokenizerFast
 from typing import Dict, Any, Optional, Tuple, Iterable, List
 from torch.utils.data import DataLoader, TensorDataset
 from pytorch_lightning.loggers import WandbLogger
+from pytorch_lightning.callbacks import EarlyStopping, LearningRateMonitor
+from pytorch_lightning.callbacks.model_checkpoint import ModelCheckpoint
 from sklearn.model_selection import train_test_split
-from omegaconf import DictConfig
+from omegaconf import DictConfig, OmegaConf
 
 from src.training.models.GPT2SberSmall import GPT2SberSmall
 from src.training.utils.chgk_datasets import GPT2SmallDataset
@@ -161,7 +163,12 @@ class DataModule(pl.LightningDataModule):
 def train(config: DictConfig) -> None:
     pl.seed_everything(config.seed)
 
-    model = GPT2Sber(config.model, lr=config.training.params.lr, w_decay=config.training.params.w_decay)
+    OmegaConf.set_struct(config, False)
+    config.hydra_base_dir = os.getcwd()
+    original_wd = hydra.utils.get_original_cwd()
+    os.chdir(original_wd)
+
+    model = GPT2Sber(config.model, lr=config.training.opt.lr, w_decay=config.training.opt.w_decay)
 
     data = DataModule(
         tokenizer_path=config.tokenizer,
@@ -171,13 +178,37 @@ def train(config: DictConfig) -> None:
         train_size=config.dataset.train_size,
     )
 
-    logger = WandbLogger(project="hse_dl_project", log_model=False)
+    lr_logger = LearningRateMonitor()
+    checkpoint_callback = ModelCheckpoint(
+        filename="{epoch}-{step}-{val_loss:.3f}",
+        dirpath=config.hydra_base_dir,
+        save_top_k=config.training.logging.save_top_k,
+        save_last=True,
+        verbose=True,
+        monitor="val_loss",
+        mode="min",
+    )
+    stopping_callback = EarlyStopping(
+        monitor="val_loss",
+        min_delta=1e-3,
+        patience=2,
+        verbose=True,
+        mode="min"
+    )
+
+    logger = WandbLogger(project="hse_dl_project", log_model=True)
 
     trainer = pl.Trainer(
         val_check_interval=config.training.logging.val_check_interval,
-        max_epochs=config.training.params.max_epochs,
+        max_epochs=config.training.opt.max_epochs,
+        accumulate_grad_batches=config.training.opt.grad_accumulation_steps,
         gpus=config.training.n_gpus,
+        gradient_clip_val=config.training.opt.grad_clip,
+        auto_select_gpus=(True if config.training.n_gpus > 0 else False),
+        accelerator=("ddp" if config.training.n_gpus > 0 else None),
+        log_every_n_steps=config.training.logging.log_steps,
         logger=logger,
+        callbacks=[lr_logger, checkpoint_callback, stopping_callback]
     )
     print("Start training...")
     trainer.fit(model, datamodule=data)
