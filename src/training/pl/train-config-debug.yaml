@@ -4,14 +4,14 @@ seed: 65537
 
 dataset:
   path: "data/questions.txt"
-  train_size: 0.85
-  train_batch_size: 8
-  val_batch_size: 8
-  limit_batches: 1.0
+  train_size: 0.98
+  train_batch_size: 2
+  val_batch_size: 2
+  limit_batches: 0.01
 
 
 training:
-  n_gpus: 1
+  n_gpus: 0
   output_dir: "training_output/"
   save_model_dir: "training_output/model/"
 
@@ -19,13 +19,13 @@ training:
     lr: 2e-5
     w_decay: 0.01
     max_epochs: 1
-    warmup_steps: 0.05
+    warmup_steps: 0.1
     grad_accumulation_steps: 1
     grad_clip: 1
 
   logging:
-    val_check_interval: 0.05
-    save_top_k: 2
+    val_check_interval: 4
+    save_top_k: 1
     log_steps: 100
 
 hydra:

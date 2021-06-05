@@ -4,8 +4,8 @@ import pytorch_lightning as pl
 import torch
 import numpy as np
 
-from transformers import GPT2LMHeadModel, GPT2TokenizerFast
-from typing import Dict, Any, Optional, Tuple, Iterable, List
+from transformers import GPT2LMHeadModel, GPT2TokenizerFast, get_cosine_schedule_with_warmup
+from typing import Dict, Any, Optional, Tuple, Iterable, List, Union
 from torch.utils.data import DataLoader, TensorDataset
 from pytorch_lightning.loggers import WandbLogger
 from pytorch_lightning.callbacks import EarlyStopping, LearningRateMonitor
@@ -19,9 +19,12 @@ from definitions import ROOT_PATH
 
 
 class GPT2Sber(pl.LightningModule):
-    def __init__(self, model_path: str, lr: float, w_decay: float):
+    def __init__(self, model_path: str, lr: float, w_decay: float, warmup_steps: Union[int, float]):
         super().__init__()
         self.model = GPT2LMHeadModel.from_pretrained(model_path)
+
+        self.warmup_steps = warmup_steps
+
         self.train_TP_top1 = 0
         self.train_TP_topk = 0
         self.val_TP_top1 = 0
@@ -34,6 +37,23 @@ class GPT2Sber(pl.LightningModule):
 
         self.lr = lr
         self.w_decay = w_decay
+
+    @property
+    def num_training_steps(self) -> int:
+        """Total training steps inferred from datamodule and devices."""
+        if self.trainer.max_steps:
+            return self.trainer.max_steps
+
+        limit_batches = self.trainer.limit_train_batches
+        batches = len(self.train_dataloader())
+        batches = min(batches, limit_batches) if isinstance(limit_batches, int) else int(limit_batches * batches)
+
+        num_devices = max(1, self.trainer.num_gpus, self.trainer.num_processes)
+        if self.trainer.tpu_cores:
+            num_devices = max(num_devices, self.trainer.tpu_cores)
+
+        effective_accum = self.trainer.accumulate_grad_batches * num_devices
+        return (batches // effective_accum) * self.trainer.max_epochs
 
     def forward(self, input_ids, attention_mask):
         self.model.eval()
@@ -148,7 +168,19 @@ class GPT2Sber(pl.LightningModule):
 
     def configure_optimizers(self):
         optimizer = torch.optim.Adam(self.model.parameters(), lr=self.lr, weight_decay=self.w_decay)
-        return optimizer
+        if isinstance(self.warmup_steps, float):
+            warmup_steps = self.num_training_steps * self.warmup_steps
+        else:
+            warmup_steps = self.warmup_steps
+
+        scheduler = get_cosine_schedule_with_warmup(
+            optimizer,
+            num_warmup_steps=warmup_steps,
+            num_training_steps=self.num_training_steps,
+        )
+        scheduler = {"scheduler": scheduler, "interval": "step", "frequency": 1}
+
+        return [optimizer], [scheduler]
 
 
 class DataModule(pl.LightningDataModule):
@@ -170,6 +202,7 @@ class DataModule(pl.LightningDataModule):
         self.val_batch_size = val_batch_size
 
         self.train_size = train_size
+        self.train_steps = None
 
     def prepare_data(self) -> None:
         samples = self._prep_samples(self.data_path)
@@ -180,6 +213,7 @@ class DataModule(pl.LightningDataModule):
         dataset = TensorDataset(*[torch.Tensor(x).type(torch.LongTensor) for x in dataset])
 
         self.train_ds, self.val_ds = train_test_split(dataset, train_size=self.train_size)
+        self.train_steps = len(self.train_ds) // self.train_batch_size
 
     def train_dataloader(self) -> DataLoader:
         return DataLoader(self.train_ds, batch_size=self.train_batch_size, shuffle=True)
@@ -203,14 +237,19 @@ def train(config: DictConfig) -> None:
     original_wd = hydra.utils.get_original_cwd()
     os.chdir(original_wd)
 
-    model = GPT2Sber(config.model, lr=config.training.opt.lr, w_decay=config.training.opt.w_decay)
-
     data = DataModule(
         tokenizer_path=config.tokenizer,
         data_path=os.path.join(ROOT_PATH, config.dataset.path),
         train_batch_size=config.dataset.train_batch_size,
         val_batch_size=config.dataset.val_batch_size,
         train_size=config.dataset.train_size,
+    )
+
+    model = GPT2Sber(
+        config.model,
+        lr=config.training.opt.lr,
+        w_decay=config.training.opt.w_decay,
+        warmup_steps=config.training.opt.warmup_steps,
     )
 
     lr_logger = LearningRateMonitor()
@@ -228,6 +267,8 @@ def train(config: DictConfig) -> None:
     logger = WandbLogger(project="hse_dl_project", log_model=True)
 
     trainer = pl.Trainer(
+        limit_train_batches=config.dataset.limit_batches,
+        limit_val_batches=config.dataset.limit_batches,
         val_check_interval=config.training.logging.val_check_interval,
         max_epochs=config.training.opt.max_epochs,
         accumulate_grad_batches=config.training.opt.grad_accumulation_steps,
