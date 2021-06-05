@@ -19,11 +19,12 @@ class GPT2SberSmall(torch.nn.Module):
     def forward(self, *args, **kwargs):
         return self.model.forward(*args, **kwargs)
 
-    def generate(self, context: str):
+    def generate(self, context: str, max_length: int, beam_size: int):
+
         input_ids = self.tokenizer.encode(context, return_tensors='pt')
         greedy_output = self.model.generate(input_ids,
-                                            max_length=80,
-                                            beam_size=5,
+                                            max_length=max_length,
+                                            beam_size=beam_size,
                                             no_repeat_ngram_size=2,
                                             early_stopping=True)
         generated_output = self.tokenizer.decode(greedy_output[0], skip_special_tokens=True)
