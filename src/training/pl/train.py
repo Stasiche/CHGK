@@ -23,6 +23,10 @@ class GPT2Sber(pl.LightningModule):
         super().__init__()
         self.model = GPT2LMHeadModel.from_pretrained(model_path)
 
+        # freezing parameters
+        for p in self.model.transformer.parameters():
+            p.requires_grad = False
+
         self.warmup_steps = warmup_steps
 
         self.train_TP_top1 = 0
