@@ -19,13 +19,17 @@ from definitions import ROOT_PATH
 
 
 class GPT2Sber(pl.LightningModule):
-    def __init__(self, model_path: str, lr: float, w_decay: float, warmup_steps: Union[int, float], eps: float):
+    def __init__(
+        self,
+        model_path: str,
+        lr: float,
+        w_decay: float,
+        warmup_steps: Union[int, float],
+        eps: float,
+        freeze_model: bool = False,
+    ):
         super().__init__()
         self.model = GPT2LMHeadModel.from_pretrained(model_path)
-
-        # freezing parameters
-        for p in self.model.transformer.parameters():
-            p.requires_grad = False
 
         self.warmup_steps = warmup_steps
 
@@ -42,6 +46,7 @@ class GPT2Sber(pl.LightningModule):
         self.lr = lr
         self.w_decay = w_decay
         self.eps = eps
+        self.freeze_model = freeze_model
 
     @property
     def num_training_steps(self) -> int:
@@ -172,7 +177,14 @@ class GPT2Sber(pl.LightningModule):
             return acc_top1, acc_topk
 
     def configure_optimizers(self):
-        optimizer = torch.optim.Adam(self.model.parameters(), lr=self.lr, weight_decay=self.w_decay, eps=self.eps)
+        # freezing parameters
+        if self.freeze_model:
+            for p in self.model.transformer.parameters():
+                p.requires_grad = False
+
+        optimizer = torch.optim.Adam(
+            self.model.parameters(), lr=self.lr, weight_decay=self.w_decay, eps=self.eps
+        )
         if isinstance(self.warmup_steps, float):
             warmup_steps = self.num_training_steps * self.warmup_steps
         else:
@@ -264,6 +276,7 @@ def train(config: DictConfig) -> None:
         w_decay=config.training.opt.w_decay,
         eps=config.training.opt.eps,
         warmup_steps=config.training.opt.warmup_steps,
+        freeze_model=config.training.opt.freeze
     )
 
     lr_logger = LearningRateMonitor()

@@ -24,6 +24,7 @@ training:
     warmup_steps: 0.05
     grad_accumulation_steps: 1
     grad_clip: 0
+    freeze: True
 
   logging:
     val_check_interval: 0.1
