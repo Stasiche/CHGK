@@ -5,10 +5,10 @@ seed: 65537
 dataset:
   path: "data/questions_filtered.txt"
   train_size: 0.9
-  train_batch_size: 3
-  val_batch_size: 3
+  train_batch_size: 10
+  val_batch_size: 10
   limit_batches: 1.0
-  seq_len: 350
+  seq_len: 100
 
 
 training:
@@ -18,13 +18,14 @@ training:
 
   opt:
     lr: 1e-6
-    w_decay: 0.05
+    w_decay: 0.01
     eps: 1e-8
     max_epochs: 2
     warmup_steps: 0.05
     grad_accumulation_steps: 1
     grad_clip: 0
-    freeze: True
+    freeze: False
+    scheduler: "const"
 
   logging:
     val_check_interval: 0.1

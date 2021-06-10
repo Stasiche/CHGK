@@ -27,6 +27,7 @@ class GPT2Sber(pl.LightningModule):
         warmup_steps: Union[int, float],
         eps: float,
         freeze_model: bool = False,
+        scheduler: str = "const"
     ):
         super().__init__()
         self.model = GPT2LMHeadModel.from_pretrained(model_path)
@@ -47,6 +48,7 @@ class GPT2Sber(pl.LightningModule):
         self.w_decay = w_decay
         self.eps = eps
         self.freeze_model = freeze_model
+        self.scheduler = scheduler
 
     @property
     def num_training_steps(self) -> int:
@@ -65,6 +67,7 @@ class GPT2Sber(pl.LightningModule):
         effective_accum = self.trainer.accumulate_grad_batches * num_devices
         return (batches // effective_accum) * self.trainer.max_epochs
 
+    @torch.no_grad()
     def forward(self, input_ids, attention_mask):
         self.model.eval()
         return self.model(input_ids, attention_mask=attention_mask)
@@ -185,19 +188,22 @@ class GPT2Sber(pl.LightningModule):
         optimizer = torch.optim.Adam(
             self.model.parameters(), lr=self.lr, weight_decay=self.w_decay, eps=self.eps
         )
-        if isinstance(self.warmup_steps, float):
-            warmup_steps = self.num_training_steps * self.warmup_steps
+        if self.scheduler == "cosine":
+            if isinstance(self.warmup_steps, float):
+                warmup_steps = self.num_training_steps * self.warmup_steps
+            else:
+                warmup_steps = self.warmup_steps
+
+            scheduler = get_cosine_schedule_with_warmup(
+                optimizer,
+                num_warmup_steps=warmup_steps,
+                num_training_steps=self.num_training_steps,
+            )
+            scheduler = {"scheduler": scheduler, "interval": "step", "frequency": 1}
+
+            return [optimizer], [scheduler]
         else:
-            warmup_steps = self.warmup_steps
-
-        scheduler = get_cosine_schedule_with_warmup(
-            optimizer,
-            num_warmup_steps=warmup_steps,
-            num_training_steps=self.num_training_steps,
-        )
-        scheduler = {"scheduler": scheduler, "interval": "step", "frequency": 1}
-
-        return [optimizer], [scheduler]
+            return optimizer
 
 
 class DataModule(pl.LightningDataModule):
@@ -302,7 +308,7 @@ def train(config: DictConfig) -> None:
         gpus=config.training.n_gpus,
         gradient_clip_val=config.training.opt.grad_clip,
         auto_select_gpus=(True if config.training.n_gpus > 0 else False),
-        accelerator=("ddp" if config.training.n_gpus > 0 else None),
+        # accelerator=("ddp" if config.training.n_gpus > 0 else None),
         log_every_n_steps=config.training.logging.log_steps,
         logger=logger,
         callbacks=[lr_logger, checkpoint_callback, stopping_callback],
