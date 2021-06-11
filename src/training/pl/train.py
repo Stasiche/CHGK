@@ -50,6 +50,8 @@ class GPT2Sber(pl.LightningModule):
         self.freeze_model = freeze_model
         self.scheduler = scheduler
 
+        self.save_hyperparameters()
+
     @property
     def num_training_steps(self) -> int:
         """Total training steps inferred from datamodule and devices."""
@@ -86,6 +88,7 @@ class GPT2Sber(pl.LightningModule):
         self.train_loss += res.loss.item()
 
         # logging
+        # TODO: When starting new epoch batch_idx resets but accumulated loss does not.
         self.log("train_loss", self.train_loss / (batch_idx + 1), on_step=True, prog_bar=True, logger=True)
         self.log("train_acc_top1", acc_top1, on_step=True, prog_bar=True, logger=True)
         self.log("train_acc_top5", acc_topk, on_step=True, prog_bar=True, logger=True)
