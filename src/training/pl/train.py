@@ -222,6 +222,7 @@ class DataModule(pl.LightningDataModule):
         val_batch_size: int,
         train_size: float,
         seq_len: int,
+        seed: int,
     ):
         super().__init__()
 
@@ -245,6 +246,7 @@ class DataModule(pl.LightningDataModule):
         dataset = [self.tokens["input_ids"], self.tokens["attention_mask"], self.tokens["input_ids"]]
         dataset = TensorDataset(*[torch.Tensor(x).type(torch.LongTensor) for x in dataset])
 
+        # TODO: May be it's better to fix seed here as well?
         self.train_ds, self.val_ds = train_test_split(dataset, train_size=self.train_size)
         self.train_steps = len(self.train_ds) // self.train_batch_size
 
@@ -277,6 +279,7 @@ def train(config: DictConfig) -> None:
         val_batch_size=config.dataset.val_batch_size,
         train_size=config.dataset.train_size,
         seq_len=config.dataset.seq_len,
+        seed=config.seed,
     )
 
     model = GPT2Sber(
