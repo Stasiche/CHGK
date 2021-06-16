@@ -222,7 +222,7 @@ class DataModule(pl.LightningDataModule):
         val_batch_size: int,
         train_size: float,
         seq_len: int,
-        seed: int,
+        seed: int = 42,
     ):
         super().__init__()
 
@@ -238,6 +238,8 @@ class DataModule(pl.LightningDataModule):
         self.train_size = train_size
         self.train_steps = None
 
+        self.seed = seed
+
     def prepare_data(self) -> None:
         samples = self._prep_samples(self.data_path)
         self.tokens = self.tokenizer(samples, padding=True, truncation=True, max_length=self.seq_len)
@@ -246,8 +248,7 @@ class DataModule(pl.LightningDataModule):
         dataset = [self.tokens["input_ids"], self.tokens["attention_mask"], self.tokens["input_ids"]]
         dataset = TensorDataset(*[torch.Tensor(x).type(torch.LongTensor) for x in dataset])
 
-        # TODO: May be it's better to fix seed here as well?
-        self.train_ds, self.val_ds = train_test_split(dataset, train_size=self.train_size)
+        self.train_ds, self.val_ds = train_test_split(dataset, train_size=self.train_size, random_state=self.seed)
         self.train_steps = len(self.train_ds) // self.train_batch_size
 
     def train_dataloader(self) -> DataLoader:
@@ -288,7 +289,8 @@ def train(config: DictConfig) -> None:
         w_decay=config.training.opt.w_decay,
         eps=config.training.opt.eps,
         warmup_steps=config.training.opt.warmup_steps,
-        freeze_model=config.training.opt.freeze
+        freeze_model=config.training.opt.freeze,
+        scheduler=config.training.opt.scheduler
     )
 
     lr_logger = LearningRateMonitor()
@@ -301,9 +303,11 @@ def train(config: DictConfig) -> None:
         monitor="val_loss",
         mode="min",
     )
-    stopping_callback = EarlyStopping(monitor="val_loss", min_delta=1e-3, patience=2, verbose=True, mode="min")
+    stopping_callback = EarlyStopping(monitor="val_acc_top5", min_delta=1e-4, patience=3, verbose=True, mode="min")
 
     logger = WandbLogger(project="hse_dl_project", log_model=True)
+    # TODO: This kind of logging doesn't work
+    logger.log_hyperparams(dict(config))
 
     trainer = pl.Trainer(
         limit_train_batches=config.dataset.limit_batches,
@@ -318,6 +322,7 @@ def train(config: DictConfig) -> None:
         log_every_n_steps=config.training.logging.log_steps,
         logger=logger,
         callbacks=[lr_logger, checkpoint_callback, stopping_callback],
+        stochastic_weight_avg=config.training.opt.swa
     )
     print("Start training...")
     trainer.fit(model, datamodule=data)
