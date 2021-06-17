@@ -15,7 +15,7 @@ from omegaconf import DictConfig, OmegaConf
 
 from src.training.models.GPT2SberSmall import GPT2SberSmall
 from src.training.utils.chgk_datasets import GPT2SmallDataset
-from definitions import ROOT_PATH
+from definitions import ROOT_PATH, SpecialTokens
 
 
 class GPT2Sber(pl.LightningModule):
@@ -27,7 +27,7 @@ class GPT2Sber(pl.LightningModule):
         warmup_steps: Union[int, float],
         eps: float,
         freeze_model: bool = False,
-        scheduler: str = "const"
+        scheduler: str = "cosine"
     ):
         super().__init__()
         self.model = GPT2LMHeadModel.from_pretrained(model_path)
@@ -227,7 +227,7 @@ class DataModule(pl.LightningDataModule):
         super().__init__()
 
         self.tokenizer = GPT2TokenizerFast.from_pretrained(tokenizer_path)
-        self.tokenizer.pad_token = "<pad>"
+        self.tokenizer.pad_token = SpecialTokens.PAD
 
         self.data_path = data_path
         self.seq_len = seq_len
@@ -261,6 +261,7 @@ class DataModule(pl.LightningDataModule):
         with open(data_path, "r", encoding="utf-8") as f:
             text = f.readlines()
 
+        text = [SpecialTokens.BOS.value + " " + sample.strip() + " " + SpecialTokens.EOS.value for sample in text]
         return text
 
 
@@ -303,7 +304,7 @@ def train(config: DictConfig) -> None:
         monitor="val_loss",
         mode="min",
     )
-    stopping_callback = EarlyStopping(monitor="val_acc_top5", min_delta=1e-4, patience=3, verbose=True, mode="min")
+    stopping_callback = EarlyStopping(monitor="val_loss", min_delta=1e-3, patience=3, verbose=True, mode="min")
 
     logger = WandbLogger(project="hse_dl_project", log_model=True)
     # TODO: This kind of logging doesn't work
