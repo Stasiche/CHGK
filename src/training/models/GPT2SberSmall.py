@@ -4,10 +4,10 @@ import torch
 
 
 class GPT2SberSmall(torch.nn.Module):
-    def __init__(self, hf_model: str):
+    def __init__(self, model_dir: str, tokenizer_path: str):
         super().__init__()
-        self.model: GPT2LMHeadModel = GPT2LMHeadModel.from_pretrained(hf_model)
-        self.tokenizer = GPT2Tokenizer.from_pretrained(hf_model)
+        self.model: GPT2LMHeadModel = GPT2LMHeadModel.from_pretrained(model_dir)
+        self.tokenizer = GPT2Tokenizer.from_pretrained(tokenizer_path)
 
         self.tokenizer.pad_token = "<pad>"
         self.tokenizer.bos_token = "<s>"

@@ -19,7 +19,16 @@ from definitions import ROOT_PATH
 
 
 class GPT2Sber(pl.LightningModule):
-    def __init__(self, model_path: str, lr: float, w_decay: float, warmup_steps: Union[int, float]):
+    def __init__(
+        self,
+        model_path: str,
+        lr: float,
+        w_decay: float,
+        warmup_steps: Union[int, float],
+        eps: float,
+        freeze_model: bool = False,
+        scheduler: str = "const"
+    ):
         super().__init__()
         self.model = GPT2LMHeadModel.from_pretrained(model_path)
 
@@ -37,6 +46,11 @@ class GPT2Sber(pl.LightningModule):
 
         self.lr = lr
         self.w_decay = w_decay
+        self.eps = eps
+        self.freeze_model = freeze_model
+        self.scheduler = scheduler
+
+        self.save_hyperparameters()
 
     @property
     def num_training_steps(self) -> int:
@@ -55,6 +69,7 @@ class GPT2Sber(pl.LightningModule):
         effective_accum = self.trainer.accumulate_grad_batches * num_devices
         return (batches // effective_accum) * self.trainer.max_epochs
 
+    @torch.no_grad()
     def forward(self, input_ids, attention_mask):
         self.model.eval()
         return self.model(input_ids, attention_mask=attention_mask)
@@ -73,6 +88,7 @@ class GPT2Sber(pl.LightningModule):
         self.train_loss += res.loss.item()
 
         # logging
+        # TODO: When starting new epoch batch_idx resets but accumulated loss does not.
         self.log("train_loss", self.train_loss / (batch_idx + 1), on_step=True, prog_bar=True, logger=True)
         self.log("train_acc_top1", acc_top1, on_step=True, prog_bar=True, logger=True)
         self.log("train_acc_top5", acc_topk, on_step=True, prog_bar=True, logger=True)
@@ -167,20 +183,30 @@ class GPT2Sber(pl.LightningModule):
             return acc_top1, acc_topk
 
     def configure_optimizers(self):
-        optimizer = torch.optim.Adam(self.model.parameters(), lr=self.lr, weight_decay=self.w_decay)
-        if isinstance(self.warmup_steps, float):
-            warmup_steps = self.num_training_steps * self.warmup_steps
-        else:
-            warmup_steps = self.warmup_steps
+        # freezing parameters
+        if self.freeze_model:
+            for p in self.model.transformer.parameters():
+                p.requires_grad = False
 
-        scheduler = get_cosine_schedule_with_warmup(
-            optimizer,
-            num_warmup_steps=warmup_steps,
-            num_training_steps=self.num_training_steps,
+        optimizer = torch.optim.Adam(
+            self.model.parameters(), lr=self.lr, weight_decay=self.w_decay, eps=self.eps
         )
-        scheduler = {"scheduler": scheduler, "interval": "step", "frequency": 1}
+        if self.scheduler == "cosine":
+            if isinstance(self.warmup_steps, float):
+                warmup_steps = self.num_training_steps * self.warmup_steps
+            else:
+                warmup_steps = self.warmup_steps
 
-        return [optimizer], [scheduler]
+            scheduler = get_cosine_schedule_with_warmup(
+                optimizer,
+                num_warmup_steps=warmup_steps,
+                num_training_steps=self.num_training_steps,
+            )
+            scheduler = {"scheduler": scheduler, "interval": "step", "frequency": 1}
+
+            return [optimizer], [scheduler]
+        else:
+            return optimizer
 
 
 class DataModule(pl.LightningDataModule):
@@ -189,7 +215,13 @@ class DataModule(pl.LightningDataModule):
     tokens: Dict[str, List[int]]
 
     def __init__(
-        self, tokenizer_path: str, data_path: str, train_batch_size: int, val_batch_size: int, train_size: float
+        self,
+        tokenizer_path: str,
+        data_path: str,
+        train_batch_size: int,
+        val_batch_size: int,
+        train_size: float,
+        seq_len: int,
     ):
         super().__init__()
 
@@ -197,6 +229,7 @@ class DataModule(pl.LightningDataModule):
         self.tokenizer.pad_token = "<pad>"
 
         self.data_path = data_path
+        self.seq_len = seq_len
 
         self.train_batch_size = train_batch_size
         self.val_batch_size = val_batch_size
@@ -206,7 +239,7 @@ class DataModule(pl.LightningDataModule):
 
     def prepare_data(self) -> None:
         samples = self._prep_samples(self.data_path)
-        self.tokens = self.tokenizer(samples, padding=True, truncation=True, max_length=206)
+        self.tokens = self.tokenizer(samples, padding=True, truncation=True, max_length=self.seq_len)
 
     def setup(self, stage: Optional[str] = None) -> None:
         dataset = [self.tokens["input_ids"], self.tokens["attention_mask"], self.tokens["input_ids"]]
@@ -243,13 +276,16 @@ def train(config: DictConfig) -> None:
         train_batch_size=config.dataset.train_batch_size,
         val_batch_size=config.dataset.val_batch_size,
         train_size=config.dataset.train_size,
+        seq_len=config.dataset.seq_len,
     )
 
     model = GPT2Sber(
         config.model,
         lr=config.training.opt.lr,
         w_decay=config.training.opt.w_decay,
+        eps=config.training.opt.eps,
         warmup_steps=config.training.opt.warmup_steps,
+        freeze_model=config.training.opt.freeze
     )
 
     lr_logger = LearningRateMonitor()
@@ -275,7 +311,7 @@ def train(config: DictConfig) -> None:
         gpus=config.training.n_gpus,
         gradient_clip_val=config.training.opt.grad_clip,
         auto_select_gpus=(True if config.training.n_gpus > 0 else False),
-        accelerator=("ddp" if config.training.n_gpus > 0 else None),
+        # accelerator=("ddp" if config.training.n_gpus > 0 else None),
         log_every_n_steps=config.training.logging.log_steps,
         logger=logger,
         callbacks=[lr_logger, checkpoint_callback, stopping_callback],
