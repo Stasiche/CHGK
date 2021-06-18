@@ -1,6 +1,6 @@
-from transformers import GPT2LMHeadModel, GPT2Tokenizer
-
 import torch
+
+from transformers import GPT2LMHeadModel, GPT2Tokenizer
 
 
 class GPT2SberSmall(torch.nn.Module):

@@ -5,20 +5,34 @@ import torch
 
 from argparse import ArgumentParser
 from src.training.models.GPT2SberSmall import GPT2SberSmall
-from definitions import SBER_MODEL_SMALL
+from definitions import SBER_MODEL_SMALL, SpecialTokens
 from transformers import logging
 from typing import Tuple
 
 
 def generate(
-    model_dir: str, tokenizer_path: str, context: str, max_len: int, beam_size: int, device: torch.device
+    model_dir: str,
+    tokenizer_path: str,
+    context: str,
+    max_len: int,
+    beam_size: int,
+    device: torch.device = torch.device("cpu"),
 ) -> Tuple[str, float]:
     model = GPT2SberSmall(model_dir, tokenizer_path, device)
     model.eval()
 
+    context = SpecialTokens.BOS.value + " " + context
+
     start = time.time()
     generated_text = model.generate(context, max_len, beam_size)
     elapsed_time = time.time() - start
+
+    eos_ind = generated_text.find("</s")
+    if eos_ind == -1:
+        eos_ind = None
+
+    bos_len = len(SpecialTokens.BOS.value) + 1
+    generated_text = generated_text[bos_len:eos_ind]
 
     return generated_text, elapsed_time
 
@@ -35,11 +49,13 @@ if __name__ == "__main__":
     args.add_argument("--context", type=str, required=True, help="Context for generation")
     args.add_argument("--max_len", type=int, required=False, default=50, help="Max length of the output in tokens")
     args.add_argument("--beam_size", type=int, required=False, default=5, help="Beam width")
-    args.add_argument("--device", type=str, default="cpu", help="Device on which to run the model")
+    args.add_argument("--gpu", action="store_true", help="Whether to use GPU or not")
     args = args.parse_args()
 
+    device = torch.device("cuda") if args.gpu else torch.device("cpu")
+
     generated_text, elapsed_time = generate(
-        args.model_dir, args.tokenizer_path, args.context, args.max_len, args.beam_size, args.device
+        args.model_dir, args.tokenizer_path, args.context, args.max_len, args.beam_size, device
     )
     print(generated_text)
-    print(f"Elapsed time: {elapsed_time: .3f}")
+    print(f"Elapsed time: {elapsed_time: .3f} seconds")
