@@ -21,18 +21,9 @@ def generate(
     model = GPT2SberSmall(model_dir, tokenizer_path, device)
     model.eval()
 
-    context = SpecialTokens.BOS.value + " " + context
-
     start = time.time()
     generated_text = model.generate(context, max_len, beam_size)
     elapsed_time = time.time() - start
-
-    eos_ind = generated_text.find("</s")
-    if eos_ind == -1:
-        eos_ind = None
-
-    bos_len = len(SpecialTokens.BOS.value) + 1
-    generated_text = generated_text[bos_len:eos_ind]
 
     return generated_text, elapsed_time
 
