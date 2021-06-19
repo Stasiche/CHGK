@@ -1,0 +1,41 @@
+tokenizer: "sberbank-ai/rugpt3small_based_on_gpt2"
+model: "models/non_swa_model/"
+model_checkpoint: "checkpoints/swa2.ckpt"
+seed: 65537
+
+dataset:
+  path: "data/questions_filtered_from_xmls.txt"
+  train_size: 0.9
+  train_batch_size: 16
+  val_batch_size: 50
+  limit_batches: 1.0
+  seq_len: 100
+
+
+training:
+  n_gpus: 1
+  output_dir: "training_output/"
+  save_model_dir: "training_output/model/"
+
+  opt:
+    lr: 5e-5
+    w_decay: 0.00
+    eps: 1e-8
+    max_epochs: 6
+    warmup_steps: 0.01
+    grad_accumulation_steps: 1
+    grad_clip: 0
+    freeze: False
+    scheduler: "cosine"
+    swa: False
+
+  logging:
+    val_check_interval: 0.1
+    save_top_k: 2
+    log_steps: 100
+
+hydra:
+  run:
+    dir: training_output_data/${now:%Y-%m-%d}/${now:%H-%M-%S}
+output:
+  logger_dir: training_output_data/

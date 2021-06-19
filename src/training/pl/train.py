@@ -307,7 +307,6 @@ def train(config: DictConfig) -> None:
     stopping_callback = EarlyStopping(monitor="val_loss", min_delta=1e-3, patience=3, verbose=True, mode="min")
 
     logger = WandbLogger(project="hse_dl_project", log_model=True)
-    # TODO: This kind of logging doesn't work
     logger.log_hyperparams(dict(config))
 
     trainer = pl.Trainer(
