@@ -11,3 +11,4 @@ class SpecialTokens(Enum):
     BOS = "<s>"
     EOS = "</s>"
     UNK = "<unk>"
+    ANS = "¥"

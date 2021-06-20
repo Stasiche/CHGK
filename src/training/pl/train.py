@@ -28,7 +28,7 @@ class GPT2Sber(pl.LightningModule):
         warmup_steps: Union[int, float],
         eps: float,
         freeze_model: bool = False,
-        scheduler: str = "cosine"
+        scheduler: str = "cosine",
     ):
         super().__init__()
         self.model = GPT2LMHeadModel.from_pretrained(model_path)
@@ -189,9 +189,7 @@ class GPT2Sber(pl.LightningModule):
             for p in self.model.transformer.parameters():
                 p.requires_grad = False
 
-        optimizer = torch.optim.Adam(
-            self.model.parameters(), lr=self.lr, weight_decay=self.w_decay, eps=self.eps
-        )
+        optimizer = torch.optim.Adam(self.model.parameters(), lr=self.lr, weight_decay=self.w_decay, eps=self.eps)
         if self.scheduler == "cosine":
             if isinstance(self.warmup_steps, float):
                 warmup_steps = self.num_training_steps * self.warmup_steps
@@ -263,10 +261,16 @@ class DataModule(pl.LightningDataModule):
 
     @staticmethod
     def _gather_the_line(line: OrderedDict) -> str:
-        return SpecialTokens.BOS.value + ' ' + \
-               (line['answer'].strip() + ' ' + line['comments'].strip()).strip() + ' ¥ ' + \
-               line['question'].strip() + \
-               SpecialTokens.EOS.val
+        return " ".join(
+            [
+                SpecialTokens.BOS.value,
+                line["answer"].strip(),
+                line["comments"].strip(),
+                SpecialTokens.ANS.value,
+                line["question"].strip(),
+                SpecialTokens.EOS.value,
+            ]
+        )
 
 
 @hydra.main(config_name="train-config.yaml")
@@ -295,7 +299,7 @@ def train(config: DictConfig) -> None:
         eps=config.training.opt.eps,
         warmup_steps=config.training.opt.warmup_steps,
         freeze_model=config.training.opt.freeze,
-        scheduler=config.training.opt.scheduler
+        scheduler=config.training.opt.scheduler,
     )
 
     lr_logger = LearningRateMonitor()
@@ -326,7 +330,7 @@ def train(config: DictConfig) -> None:
         log_every_n_steps=config.training.logging.log_steps,
         logger=logger,
         callbacks=[lr_logger, checkpoint_callback] + [stopping_callback] if config.training.opt.early_stopping else [],
-        stochastic_weight_avg=config.training.opt.swa
+        stochastic_weight_avg=config.training.opt.swa,
     )
     print("Start training...")
     trainer.fit(model, datamodule=data)
