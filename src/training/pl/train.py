@@ -329,7 +329,8 @@ def train(config: DictConfig) -> None:
         # accelerator=("ddp" if config.training.n_gpus > 0 else None),
         log_every_n_steps=config.training.logging.log_steps,
         logger=logger,
-        callbacks=[lr_logger, checkpoint_callback] + [stopping_callback] if config.training.opt.early_stopping else [],
+        callbacks=[lr_logger, checkpoint_callback]
+        + ([stopping_callback] if config.training.opt.early_stopping else []),
         stochastic_weight_avg=config.training.opt.swa,
     )
     print("Start training...")
