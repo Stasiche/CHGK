@@ -15,7 +15,7 @@ from omegaconf import DictConfig, OmegaConf
 
 from src.training.models.GPT2SberSmall import GPT2SberSmall
 from src.training.utils.chgk_datasets import GPT2SmallDataset
-from definitions import ROOT_PATH
+from definitions import ROOT_PATH, SpecialTokens
 
 
 class GPT2Sber(pl.LightningModule):
@@ -27,7 +27,7 @@ class GPT2Sber(pl.LightningModule):
         warmup_steps: Union[int, float],
         eps: float,
         freeze_model: bool = False,
-        scheduler: str = "const"
+        scheduler: str = "cosine"
     ):
         super().__init__()
         self.model = GPT2LMHeadModel.from_pretrained(model_path)
@@ -88,7 +88,6 @@ class GPT2Sber(pl.LightningModule):
         self.train_loss += res.loss.item()
 
         # logging
-        # TODO: When starting new epoch batch_idx resets but accumulated loss does not.
         self.log("train_loss", self.train_loss / (batch_idx + 1), on_step=True, prog_bar=True, logger=True)
         self.log("train_acc_top1", acc_top1, on_step=True, prog_bar=True, logger=True)
         self.log("train_acc_top5", acc_topk, on_step=True, prog_bar=True, logger=True)
@@ -99,6 +98,7 @@ class GPT2Sber(pl.LightningModule):
         self.train_samples = 0
         self.train_TP_top1 = 0
         self.train_TP_topk = 0
+        self.train_loss = 0
 
     def validation_step(self, batch, batch_idx):
         # forward
@@ -222,11 +222,12 @@ class DataModule(pl.LightningDataModule):
         val_batch_size: int,
         train_size: float,
         seq_len: int,
+        seed: int = 42,
     ):
         super().__init__()
 
         self.tokenizer = GPT2TokenizerFast.from_pretrained(tokenizer_path)
-        self.tokenizer.pad_token = "<pad>"
+        self.tokenizer.pad_token = SpecialTokens.PAD
 
         self.data_path = data_path
         self.seq_len = seq_len
@@ -237,6 +238,8 @@ class DataModule(pl.LightningDataModule):
         self.train_size = train_size
         self.train_steps = None
 
+        self.seed = seed
+
     def prepare_data(self) -> None:
         samples = self._prep_samples(self.data_path)
         self.tokens = self.tokenizer(samples, padding=True, truncation=True, max_length=self.seq_len)
@@ -245,7 +248,7 @@ class DataModule(pl.LightningDataModule):
         dataset = [self.tokens["input_ids"], self.tokens["attention_mask"], self.tokens["input_ids"]]
         dataset = TensorDataset(*[torch.Tensor(x).type(torch.LongTensor) for x in dataset])
 
-        self.train_ds, self.val_ds = train_test_split(dataset, train_size=self.train_size)
+        self.train_ds, self.val_ds = train_test_split(dataset, train_size=self.train_size, random_state=self.seed)
         self.train_steps = len(self.train_ds) // self.train_batch_size
 
     def train_dataloader(self) -> DataLoader:
@@ -258,6 +261,7 @@ class DataModule(pl.LightningDataModule):
         with open(data_path, "r", encoding="utf-8") as f:
             text = f.readlines()
 
+        text = [SpecialTokens.BOS.value + " " + sample.strip() + " " + SpecialTokens.EOS.value for sample in text]
         return text
 
 
@@ -277,6 +281,7 @@ def train(config: DictConfig) -> None:
         val_batch_size=config.dataset.val_batch_size,
         train_size=config.dataset.train_size,
         seq_len=config.dataset.seq_len,
+        seed=config.seed,
     )
 
     model = GPT2Sber(
@@ -285,7 +290,8 @@ def train(config: DictConfig) -> None:
         w_decay=config.training.opt.w_decay,
         eps=config.training.opt.eps,
         warmup_steps=config.training.opt.warmup_steps,
-        freeze_model=config.training.opt.freeze
+        freeze_model=config.training.opt.freeze,
+        scheduler=config.training.opt.scheduler
     )
 
     lr_logger = LearningRateMonitor()
@@ -298,9 +304,11 @@ def train(config: DictConfig) -> None:
         monitor="val_loss",
         mode="min",
     )
-    stopping_callback = EarlyStopping(monitor="val_loss", min_delta=1e-3, patience=2, verbose=True, mode="min")
+    stopping_callback = EarlyStopping(monitor="val_loss", min_delta=1e-3, patience=3, verbose=True, mode="min")
 
     logger = WandbLogger(project="hse_dl_project", log_model=True)
+    # TODO: This kind of logging doesn't work
+    logger.log_hyperparams(dict(config))
 
     trainer = pl.Trainer(
         limit_train_batches=config.dataset.limit_batches,
@@ -315,6 +323,7 @@ def train(config: DictConfig) -> None:
         log_every_n_steps=config.training.logging.log_steps,
         logger=logger,
         callbacks=[lr_logger, checkpoint_callback, stopping_callback],
+        stochastic_weight_avg=config.training.opt.swa
     )
     print("Start training...")
     trainer.fit(model, datamodule=data)
