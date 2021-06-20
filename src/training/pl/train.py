@@ -5,7 +5,7 @@ import torch
 import numpy as np
 
 from transformers import GPT2LMHeadModel, GPT2TokenizerFast, get_cosine_schedule_with_warmup
-from typing import Dict, Any, Optional, Tuple, Iterable, List, Union
+from typing import Dict, Any, Optional, Tuple, Iterable, List, Union, OrderedDict
 from torch.utils.data import DataLoader, TensorDataset
 from pytorch_lightning.loggers import WandbLogger
 from pytorch_lightning.callbacks import EarlyStopping, LearningRateMonitor
@@ -13,6 +13,7 @@ from pytorch_lightning.callbacks.model_checkpoint import ModelCheckpoint
 from sklearn.model_selection import train_test_split
 from omegaconf import DictConfig, OmegaConf
 
+from src.preprocessing.get_data_generator import get_data_generator
 from src.training.models.GPT2SberSmall import GPT2SberSmall
 from src.training.utils.chgk_datasets import GPT2SmallDataset
 from definitions import ROOT_PATH, SpecialTokens
@@ -258,11 +259,14 @@ class DataModule(pl.LightningDataModule):
         return DataLoader(self.val_ds, batch_size=self.val_batch_size, shuffle=False)
 
     def _prep_samples(self, data_path: str) -> List[str]:
-        with open(data_path, "r", encoding="utf-8") as f:
-            text = f.readlines()
+        return [self._gather_the_line(el) for el in get_data_generator(data_path)]
 
-        text = [SpecialTokens.BOS.value + " " + sample.strip() + " " + SpecialTokens.EOS.value for sample in text]
-        return text
+    @staticmethod
+    def _gather_the_line(line: OrderedDict) -> str:
+        return SpecialTokens.BOS.value + ' ' + \
+               (line['answer'].strip() + ' ' + line['comments'].strip()).strip() + ' ¥ ' + \
+               line['question'].strip() + \
+               SpecialTokens.EOS.val
 
 
 @hydra.main(config_name="train-config.yaml")
