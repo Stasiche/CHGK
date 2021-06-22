@@ -2,10 +2,11 @@
 
 import logging
 import os
-
 from bot_controller import BotController
 
+
 TELEGRAM_BOT_TOKEN = "TELEGRAM_BOT_TOKEN"
+
 
 logging.basicConfig(
     format="%(asctime)s - %(levelname)s - %(message)s",

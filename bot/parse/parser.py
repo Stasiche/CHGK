@@ -1,8 +1,7 @@
 from natasha import Doc, Segmenter, MorphVocab, NewsEmbedding, NewsNERTagger, NewsSyntaxParser
 from natasha.morph.tagger import NewsMorphTagger
-
 from parse.intent import Intent, Command
-from parse.question_parser import QuestionParser  #? а у нас что
+from parse.question_parser import QuestionParser
 from parse.game_parser import GameParser
 from parse.search_parser import SearchParser
 from parse.goodbye_parser import GoodbyeParser

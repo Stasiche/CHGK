@@ -1,22 +1,9 @@
 import dfa as dfa
 from parse.intent import Intent, Command
 import torch
-import pandas as pd
-from transformers import AutoTokenizer, AutoModel
-import pickle
-import numpy 
-
-
-tokenizer = AutoTokenizer.from_pretrained("DeepPavlov/rubert-base-cased")
-model = AutoModel.from_pretrained("DeepPavlov/rubert-base-cased")
-model.to("cpu").eval()
-
-
-with open("/home/breengles/Dropbox/hse/CHKG_proj/bot/dfa/search/kmeans.pkl", "rb") as km:
-    kmeans = pickle.load(km)
-    
-
-db = pd.read_csv("/home/breengles/Dropbox/hse/CHKG_proj/bot/dfa/search/cleaned_clusters.csv")
+import numpy
+from db.utils import kmeans, db, get_intent_embedding
+from parse.keywords import autostop
 
 
 class GetQuestionFromDBState(dfa.BaseState):
@@ -34,16 +21,12 @@ class GetQuestionFromDBState(dfa.BaseState):
     def handle_question_command(self, intent: Intent) -> dfa.MoveResponse:
         if "theme" in intent.parameters:
             next_state = dfa.StartState()
-            message = get_question_from_db(intent.parameters['theme'])
+            if autostop.search(intent.message.lower()):
+                message = "Вопрос ты уже задал, а ответ и так знаешь: 42"
+            else:
+                message = get_question_from_db(intent.parameters['theme'])
             return dfa.MoveResponse(next_state, message)
         return dfa.MoveResponse(dfa.AskSearchThemeState(), None)
-
-
-def get_intent_embedding(theme):
-    token = tokenizer(theme, return_tensors="pt", padding=True, truncation=True, max_length=100)
-    with torch.no_grad():
-        model_dict = model(**token)
-    return model_dict["last_hidden_state"][:, 0, :].cpu().numpy()
 
 
 def get_question_from_db(theme):
