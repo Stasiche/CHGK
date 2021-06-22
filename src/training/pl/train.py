@@ -2,6 +2,7 @@ import os
 import hydra
 import pytorch_lightning as pl
 import torch
+import pandas as pd
 import numpy as np
 
 from transformers import GPT2LMHeadModel, GPT2TokenizerFast, get_cosine_schedule_with_warmup
@@ -16,6 +17,7 @@ from omegaconf import DictConfig, OmegaConf
 from src.preprocessing.get_data_generator import get_data_generator
 from src.training.models.GPT2SberSmall import GPT2SberSmall
 from src.training.utils.chgk_datasets import GPT2SmallDataset
+from src.training.pl.Dataset import DataModule, CSVDataModule
 from definitions import ROOT_PATH, SpecialTokens
 
 
@@ -208,71 +210,6 @@ class GPT2Sber(pl.LightningModule):
             return optimizer
 
 
-class DataModule(pl.LightningDataModule):
-    train_ds: TensorDataset
-    val_ds: TensorDataset
-    tokens: Dict[str, List[int]]
-
-    def __init__(
-        self,
-        tokenizer_path: str,
-        data_path: str,
-        train_batch_size: int,
-        val_batch_size: int,
-        train_size: float,
-        seq_len: int,
-        seed: int = 42,
-    ):
-        super().__init__()
-
-        self.tokenizer = GPT2TokenizerFast.from_pretrained(tokenizer_path)
-        self.tokenizer.pad_token = SpecialTokens.PAD
-
-        self.data_path = data_path
-        self.seq_len = seq_len
-
-        self.train_batch_size = train_batch_size
-        self.val_batch_size = val_batch_size
-
-        self.train_size = train_size
-        self.train_steps = None
-
-        self.seed = seed
-
-    def prepare_data(self) -> None:
-        samples = self._prep_samples(self.data_path)
-        self.tokens = self.tokenizer(samples, padding=True, truncation=True, max_length=self.seq_len)
-
-    def setup(self, stage: Optional[str] = None) -> None:
-        dataset = [self.tokens["input_ids"], self.tokens["attention_mask"], self.tokens["input_ids"]]
-        dataset = TensorDataset(*[torch.Tensor(x).type(torch.LongTensor) for x in dataset])
-
-        self.train_ds, self.val_ds = train_test_split(dataset, train_size=self.train_size, random_state=self.seed)
-        self.train_steps = len(self.train_ds) // self.train_batch_size
-
-    def train_dataloader(self) -> DataLoader:
-        return DataLoader(self.train_ds, batch_size=self.train_batch_size, shuffle=True)
-
-    def val_dataloader(self) -> DataLoader:
-        return DataLoader(self.val_ds, batch_size=self.val_batch_size, shuffle=False)
-
-    def _prep_samples(self, data_path: str) -> List[str]:
-        return [self._gather_the_line(el) for el in get_data_generator(data_path)]
-
-    @staticmethod
-    def _gather_the_line(line: OrderedDict) -> str:
-        return " ".join(
-            [
-                SpecialTokens.BOS.value,
-                line["answer"].strip(),
-                line["comments"].strip(),
-                SpecialTokens.ANS.value,
-                line["question"].strip(),
-                SpecialTokens.EOS.value,
-            ]
-        )
-
-
 @hydra.main(config_name="train-config.yaml")
 def train(config: DictConfig) -> None:
     pl.seed_everything(config.seed)
@@ -282,7 +219,7 @@ def train(config: DictConfig) -> None:
     original_wd = hydra.utils.get_original_cwd()
     os.chdir(original_wd)
 
-    data = DataModule(
+    data = CSVDataModule(
         tokenizer_path=config.tokenizer,
         data_path=os.path.join(ROOT_PATH, config.dataset.path),
         train_batch_size=config.dataset.train_batch_size,
@@ -290,6 +227,7 @@ def train(config: DictConfig) -> None:
         train_size=config.dataset.train_size,
         seq_len=config.dataset.seq_len,
         seed=config.seed,
+        ans_seq_len=config.dataset.ans_seq_len
     )
 
     model = GPT2Sber(

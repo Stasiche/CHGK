@@ -3,16 +3,17 @@ model: "sberbank-ai/rugpt3small_based_on_gpt2"
 seed: 65537
 
 dataset:
-  path: "data/dataset_no_blitz.csv"
+  path: "data/dataset_reduced_filtered_super_mega.csv"
   train_size: 0.9
-  train_batch_size: 12
+  train_batch_size: 14
   val_batch_size: 32
   limit_batches: 1.0
-  seq_len: 130
+  seq_len: 100
+  ans_seq_len: 20
 
 
 training:
-  n_gpus: 1
+  n_gpus: 0
   output_dir: "training_output/"
   save_model_dir: "training_output/model/"
 
