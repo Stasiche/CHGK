@@ -7,6 +7,7 @@ from handlers.start_handler import StartHandler
 from handlers.reset_handler import ResetHandler
 from handlers.get_state_handler import GetStateHandler
 from handlers.main_message_handler import MainMessageHandler
+from handlers.help_handler import HelpHandler
 
 
 from model import Model
@@ -26,6 +27,7 @@ class BotController:
     def __init_handlers(self) -> List[Handler]:
         return [
             StartHandler().create(),
+            HelpHandler().create(),
             MainMessageHandler(self.__model).create(),
             ResetHandler(self.__model).create(),
             GetStateHandler(self.__model).create(),

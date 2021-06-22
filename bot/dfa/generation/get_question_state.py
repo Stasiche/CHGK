@@ -51,11 +51,11 @@ def generate(model_dir: str, tokenizer_path: str, context: str, max_len: int,
         if eos_ind == -1:
             eos_ind = None
 
-        # bos_len = len("<s>") + 1  # deploy version
-        # generated_text = generated_text[bos_len:eos_ind]
+        bos_len = len("<s>") + 1  # deploy version
+        generated_text = generated_text[bos_len:eos_ind]
         
-        bos_len = len("<s>") + len(context) - 3
-        generated_text = context + " | " + generated_text[bos_len:eos_ind]
+        # bos_len = len("<s>") + len(context) - 3
+        # generated_text = context + " | " + generated_text[bos_len:eos_ind]
 
     return generated_text
 
