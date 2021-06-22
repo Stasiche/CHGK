@@ -9,7 +9,9 @@ from .game.get_game_state import GetGameState
 from .goodbye_state import GoodbyeState
 from .greetings_state import GreetingsState
 
+
 __all__ = ["BaseState", "MoveResponse", "DfaUserHandler", "StartState", 
            "AskThemeState", "GetQuestionState", "GetGameState", 
            "AskGenerationThemeState", "AskSearchThemeState", 
-           "GetQuestionFromDBState", "GetGameState", "GoodbyeState", "GreetingsState"]
+           "GetQuestionFromDBState", "GetGameState", "GoodbyeState", 
+           "GreetingsState"]
