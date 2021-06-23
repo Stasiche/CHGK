@@ -41,4 +41,5 @@ For now generation is pretty simple and has only 2 parameteres to tune -- `beam_
 ### XML data
 * [Cosine lr no decay model](https://hse-dl-models.s3.eu-central-1.amazonaws.com/new_data.tar.gz)
 * [Blitz model](https://hse-dl-models.s3.eu-central-1.amazonaws.com/blitz_model.tar.gz)
+* [Answers in context model](https://hse-dl-models.s3.eu-central-1.amazonaws.com/answers_100_20_model.tar.gz)
 
