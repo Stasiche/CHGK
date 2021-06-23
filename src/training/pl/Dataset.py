@@ -38,8 +38,10 @@ class DataModule(pl.LightningDataModule):
     ):
         super().__init__()
 
-        self.tokenizer = GPT2TokenizerFast.from_pretrained(tokenizer_path)
-        self.tokenizer.pad_token = SpecialTokens.PAD
+        self.tokenizer = GPT2TokenizerFast.from_pretrained(tokenizer_path,
+                                                           eos_token=SpecialTokens.EOS.value,
+                                                           bos_token=SpecialTokens.BOS.value,
+                                                           pad_token=SpecialTokens.PAD.value,)
 
         self.data_path = data_path
         self.seq_len = seq_len
@@ -97,7 +99,7 @@ class CSVDataModule(DataModule):
         self.bos_id, self.ans_delim_id, self.eos_id = \
             self.tokenizer.convert_tokens_to_ids([SpecialTokens.BOS.value, SpecialTokens.ANS.value, SpecialTokens.EOS.value])
 
-    def _create_dataset(self) -> TensorDataset:
+    def _create_dataset_old(self) -> TensorDataset:
         csv = pd.read_csv(self.data_path)
 
         ans_encoded = self.tokenizer(csv["answer"].values.tolist(), padding=True, truncation=True, max_length=self.ans_seq_len,
@@ -122,4 +124,26 @@ class CSVDataModule(DataModule):
 
         return dataset
 
+    def _create_dataset(self) -> TensorDataset:
+        csv = pd.read_csv(self.data_path)
+
+        ans_text = self._truncate_str(csv["answer"].values.tolist(), self.ans_seq_len)
+        q_text = self._truncate_str(csv["question"].values.tolist(), self.seq_len)
+
+        samples = [" ".join([SpecialTokens.BOS.value, ans, SpecialTokens.ANS.value, q, SpecialTokens.EOS.value])
+                   for ans, q in zip(ans_text, q_text)]
+
+        samples_encoded = self.tokenizer(samples, padding=True, return_tensors="pt")
+
+        dataset = TensorDataset(samples_encoded["input_ids"],
+                                samples_encoded["attention_mask"],
+                                deepcopy(samples_encoded["input_ids"]))
+
+        return dataset
+
+    def _truncate_str(self, text: List[str], max_len: int):
+        text_encoded = self.tokenizer(text, max_length=max_len, truncation=True)["input_ids"]
+        text_decoded = self.tokenizer.batch_decode(text_encoded)
+
+        return text_decoded
 

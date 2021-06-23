@@ -13,7 +13,7 @@ dataset:
 
 
 training:
-  n_gpus: 1
+  n_gpus: 0
   output_dir: "training_output/"
   save_model_dir: "training_output/model/"
 
