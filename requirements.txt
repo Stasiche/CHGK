@@ -6,3 +6,6 @@ hydra-core
 wandb
 numpy
 scikit-learn
+python-telegram-bot
+natasha
+transformers
