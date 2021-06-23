@@ -69,16 +69,14 @@ class GPT2SberContext(GPT2SberAbstract):
         super().__init__(*args, **kwargs)
 
     def _pre_example(self, example) -> torch.LongTensor:
-        # example = " ".join([SpecialTokens.BOS.value, example, SpecialTokens.ANS.value])
-        # example += " "
-        # input_ids = self.tokenizer.encode(example, return_tensors="pt").to(self.device)
+        example = " ".join([SpecialTokens.BOS.value, example, SpecialTokens.ANS.value])
+        example += " "
+        input_ids = self.tokenizer.encode(example, return_tensors="pt").to(self.device)
 
-        context_ids = self.tokenizer.encode(example)
-        bos_id, delim_id = self.tokenizer.convert_tokens_to_ids([SpecialTokens.BOS.value, SpecialTokens.ANS.value])
-
-        input_ids = torch.tensor([bos_id] + context_ids + [delim_id]).unsqueeze(0).type(torch.LongTensor)
-
-        print(input_ids.size())
+        # context_ids = self.tokenizer.encode(example)
+        # bos_id, delim_id = self.tokenizer.convert_tokens_to_ids([SpecialTokens.BOS.value, SpecialTokens.ANS.value])
+        #
+        # input_ids = torch.tensor([bos_id] + context_ids + [delim_id]).unsqueeze(0).type(torch.LongTensor)
 
         return input_ids.to(self.device)
 
