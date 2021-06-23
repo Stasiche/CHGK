@@ -3,7 +3,7 @@ from datasets import load_metric
 from sklearn.model_selection import train_test_split
 from omegaconf import DictConfig
 
-from src.training.models.GPT2SberSmall import GPT2SberSmall
+from src.training.models.GPT2SberAbstract import GPT2SberAbstract
 from src.training.utils.chgk_datasets import GPT2SmallDataset
 from definitions import ROOT_PATH
 
@@ -25,7 +25,7 @@ def compute_metrics(preds):
 
 @hydra.main(config_name="train-config.yaml")
 def train(config: DictConfig) -> None:
-    model = GPT2SberSmall(config.model)
+    model = GPT2SberAbstract(config.model)
     tokenizer = model.tokenizer
     dataset = GPT2SmallDataset(os.path.join(ROOT_PATH, config.dataset.path))
     dataset_train, dataset_eval = train_test_split(dataset, train_size=0.90)

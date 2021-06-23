@@ -4,7 +4,7 @@ import time
 import torch
 
 from argparse import ArgumentParser
-from src.training.models.GPT2SberSmall import GPT2SberSmall
+from src.training.models.GPT2SberAbstract import GPT2SberContext
 from definitions import SBER_MODEL_SMALL, SpecialTokens
 from transformers import logging
 from typing import Tuple
@@ -18,7 +18,7 @@ def generate(
     beam_size: int,
     device: torch.device = torch.device("cpu"),
 ) -> Tuple[str, float]:
-    model = GPT2SberSmall(model_dir, tokenizer_path, device)
+    model = GPT2SberContext(model_dir, tokenizer_path, device)
     model.eval()
 
     start = time.time()

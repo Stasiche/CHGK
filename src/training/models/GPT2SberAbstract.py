@@ -5,7 +5,7 @@ from transformers import GPT2LMHeadModel, GPT2Tokenizer
 from definitions import SpecialTokens
 
 
-class GPT2SberSmall(torch.nn.Module):
+class GPT2SberAbstract(torch.nn.Module):
     def __init__(self, model_dir: str, tokenizer_path: str, device: torch.device):
         super().__init__()
         self.model: GPT2LMHeadModel = GPT2LMHeadModel.from_pretrained(model_dir)
@@ -37,6 +37,17 @@ class GPT2SberSmall(torch.nn.Module):
         return generated_output
 
     def _pre_example(self, example) -> torch.LongTensor:
+        ...
+
+    def _post_example(self, generated_text) -> str:
+        ...
+
+
+class GPT2SberSimple(GPT2SberAbstract):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+    def _pre_example(self, example) -> torch.LongTensor:
         example = SpecialTokens.BOS.value + " " + example
         input_ids = self.tokenizer.encode(example, return_tensors="pt").to(self.device)
 
@@ -52,3 +63,34 @@ class GPT2SberSmall(torch.nn.Module):
 
         return generated_text
 
+
+class GPT2SberContext(GPT2SberAbstract):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+    def _pre_example(self, example) -> torch.LongTensor:
+        # example = " ".join([SpecialTokens.BOS.value, example, SpecialTokens.ANS.value])
+        # example += " "
+        # input_ids = self.tokenizer.encode(example, return_tensors="pt").to(self.device)
+
+        context_ids = self.tokenizer.encode(example)
+        bos_id, delim_id = self.tokenizer.convert_tokens_to_ids([SpecialTokens.BOS.value, SpecialTokens.ANS.value])
+
+        input_ids = torch.tensor([bos_id] + context_ids + [delim_id]).unsqueeze(0).type(torch.LongTensor)
+
+        print(input_ids.size())
+
+        return input_ids.to(self.device)
+
+    def _post_example(self, generated_text) -> str:
+        # return generated_text
+        eos_ind = generated_text.find("</s")
+        q_start_ind = generated_text.find(SpecialTokens.ANS.value)
+        print(q_start_ind)
+        if eos_ind == -1:
+            eos_ind = None
+
+        ans_token_len = len(SpecialTokens.ANS.value)
+        generated_text = generated_text[q_start_ind+ans_token_len:eos_ind]
+
+        return generated_text

@@ -13,9 +13,10 @@ from pytorch_lightning.callbacks import EarlyStopping, LearningRateMonitor
 from pytorch_lightning.callbacks.model_checkpoint import ModelCheckpoint
 from sklearn.model_selection import train_test_split
 from omegaconf import DictConfig, OmegaConf
+from copy import deepcopy
 
 from src.preprocessing.get_data_generator import get_data_generator
-from src.training.models.GPT2SberSmall import GPT2SberSmall
+from src.training.models.GPT2SberAbstract import GPT2SberAbstract
 from src.training.utils.chgk_datasets import GPT2SmallDataset
 from definitions import ROOT_PATH, SpecialTokens
 
@@ -89,7 +90,7 @@ class DataModule(pl.LightningDataModule):
 
 
 class CSVDataModule(DataModule):
-    def __init__(self, ans_seq_len: int = 20, *args, **kwargs):
+    def __init__(self, ans_seq_len: int = 25, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.ans_seq_len = ans_seq_len
 
@@ -117,7 +118,7 @@ class CSVDataModule(DataModule):
             [bos_ids, ans_encoded["attention_mask"], ans_del_ids, q_encoded["attention_mask"], eos_ids],
             dim=-1)
 
-        dataset = TensorDataset(input_ids, att_mask, input_ids)
+        dataset = TensorDataset(input_ids, att_mask, deepcopy(input_ids))
 
         return dataset
 

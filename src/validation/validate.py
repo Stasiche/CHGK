@@ -13,7 +13,7 @@ from pytorch_lightning.callbacks.model_checkpoint import ModelCheckpoint
 from sklearn.model_selection import train_test_split
 from omegaconf import DictConfig, OmegaConf
 
-from src.training.models.GPT2SberSmall import GPT2SberSmall
+from src.training.models.GPT2SberAbstract import GPT2SberAbstract
 from src.training.pl.train import GPT2Sber, DataModule
 from definitions import ROOT_PATH, SpecialTokens
 

@@ -15,7 +15,7 @@ from sklearn.model_selection import train_test_split
 from omegaconf import DictConfig, OmegaConf
 
 from src.preprocessing.get_data_generator import get_data_generator
-from src.training.models.GPT2SberSmall import GPT2SberSmall
+from src.training.models.GPT2SberAbstract import GPT2SberAbstract
 from src.training.utils.chgk_datasets import GPT2SmallDataset
 from src.training.pl.Dataset import DataModule, CSVDataModule
 from definitions import ROOT_PATH, SpecialTokens

@@ -5,7 +5,7 @@ seed: 65537
 dataset:
   path: "data/dataset_reduced_filtered_super_mega.csv"
   train_size: 0.9
-  train_batch_size: 14
+  train_batch_size: 13
   val_batch_size: 32
   limit_batches: 1.0
   seq_len: 100
@@ -13,7 +13,7 @@ dataset:
 
 
 training:
-  n_gpus: 0
+  n_gpus: 1
   output_dir: "training_output/"
   save_model_dir: "training_output/model/"
 
