@@ -27,14 +27,14 @@ class DataModule(pl.LightningDataModule):
     tokens: Dict[str, List[int]]
 
     def __init__(
-            self,
-            tokenizer_path: str,
-            data_path: str,
-            train_batch_size: int,
-            val_batch_size: int,
-            train_size: float,
-            seq_len: int,
-            seed: int = 42,
+        self,
+        tokenizer_path: str,
+        data_path: str,
+        train_batch_size: int,
+        val_batch_size: int,
+        train_size: float,
+        seq_len: int,
+        seed: int = 42,
     ):
         super().__init__()
 
@@ -166,11 +166,13 @@ class CSVDataModule(DataModule):
         q_text = csv["question"].values.tolist()
 
         samples = [
-            " ".join([SpecialTokens.BOS.value, ans, SpecialTokens.ANS.value, q, SpecialTokens.EOS.value])
+            " ".join([SpecialTokens.BOS.value, q, SpecialTokens.EOS.value])
             for ans, q in zip(ans_text, q_text)
         ]
 
-        samples_encoded = self.tokenizer(samples, padding=True, return_tensors="pt")
+        samples_encoded = self.tokenizer(
+            samples, padding=True, truncation=True, max_length=self.seq_len, return_tensors="pt"
+        )
 
         dataset = TensorDataset(
             samples_encoded["input_ids"], samples_encoded["attention_mask"], deepcopy(samples_encoded["input_ids"])

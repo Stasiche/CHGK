@@ -25,14 +25,39 @@ class GPT2SberAbstract(torch.nn.Module):
         return self.model.forward(*args, **kwargs)
 
     @torch.no_grad()
-    def generate(self, context: str, max_length: int, beam_size: int):
+    def generate(
+        self,
+        context: str,
+        max_length: int = 100,
+        beam_size: int = 5,
+        sampling: bool = True,
+        top_k: int = 50,
+        top_p: float = 0.9,
+    ):
         input_ids = self._pre_example(context)
 
+        if not sampling:
+            generated_text = self._generate_beam(input_ids, max_length, beam_size)
+        else:
+            generated_text = self._generate_sampling(input_ids, max_length, top_k, top_p)
+
+        generated_text = self._post_example(generated_text)
+
+        return generated_text
+
+    def _generate_beam(self, input_ids, max_length: int, beam_size: int) -> str:
         greedy_output = self.model.generate(
             input_ids, max_length=max_length, beam_size=beam_size, no_repeat_ngram_size=2, early_stopping=True
         )
         generated_output = self.tokenizer.decode(greedy_output[0], skip_special_tokens=True)
-        generated_output = self._post_example(generated_output)
+
+        return generated_output
+
+    def _generate_sampling(self, input_ids, max_length: int, top_k: int = 50, top_p: float = 0.9):
+        sampling_output = self.model.generate(
+            input_ids, do_sample=True, max_length=max_length, top_k=top_k, top_p=top_p
+        )
+        generated_output = self.tokenizer.decode(sampling_output[0], skip_special_tokens=True)
 
         return generated_output
 
@@ -81,7 +106,6 @@ class GPT2SberContext(GPT2SberAbstract):
         return input_ids.to(self.device)
 
     def _post_example(self, generated_text) -> str:
-        # return generated_text
         eos_ind = generated_text.find("</s")
         q_start_ind = generated_text.find(SpecialTokens.ANS.value)
         print(q_start_ind)
@@ -89,6 +113,6 @@ class GPT2SberContext(GPT2SberAbstract):
             eos_ind = None
 
         ans_token_len = len(SpecialTokens.ANS.value)
-        generated_text = generated_text[q_start_ind+ans_token_len:eos_ind]
+        generated_text = generated_text[q_start_ind + ans_token_len : eos_ind]
 
         return generated_text
