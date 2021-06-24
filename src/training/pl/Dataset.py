@@ -27,21 +27,27 @@ class DataModule(pl.LightningDataModule):
     tokens: Dict[str, List[int]]
 
     def __init__(
-        self,
-        tokenizer_path: str,
-        data_path: str,
-        train_batch_size: int,
-        val_batch_size: int,
-        train_size: float,
-        seq_len: int,
-        seed: int = 42,
+            self,
+            tokenizer_path: str,
+            data_path: str,
+            train_batch_size: int,
+            val_batch_size: int,
+            train_size: float,
+            seq_len: int,
+            seed: int = 42,
     ):
         super().__init__()
 
-        self.tokenizer = GPT2TokenizerFast.from_pretrained(tokenizer_path,
-                                                           eos_token=SpecialTokens.EOS.value,
-                                                           bos_token=SpecialTokens.BOS.value,
-                                                           pad_token=SpecialTokens.PAD.value,)
+        self.tokenizer = GPT2TokenizerFast.from_pretrained(
+            tokenizer_path,
+            eos_token=SpecialTokens.EOS.value,
+            bos_token=SpecialTokens.BOS.value,
+            pad_token=SpecialTokens.PAD.value,
+        )
+
+        self.bos_id, self.ans_delim_id, self.eos_id = self.tokenizer.convert_tokens_to_ids(
+            [SpecialTokens.BOS.value, SpecialTokens.ANS.value, SpecialTokens.EOS.value]
+        )
 
         self.data_path = data_path
         self.seq_len = seq_len
@@ -96,16 +102,19 @@ class CSVDataModule(DataModule):
         super().__init__(*args, **kwargs)
         self.ans_seq_len = ans_seq_len
 
-        self.bos_id, self.ans_delim_id, self.eos_id = \
-            self.tokenizer.convert_tokens_to_ids([SpecialTokens.BOS.value, SpecialTokens.ANS.value, SpecialTokens.EOS.value])
-
     def _create_dataset_old(self) -> TensorDataset:
         csv = pd.read_csv(self.data_path)
 
-        ans_encoded = self.tokenizer(csv["answer"].values.tolist(), padding=True, truncation=True, max_length=self.ans_seq_len,
-                                     return_tensors="pt")
-        q_encoded = self.tokenizer(csv["question"].values.tolist(), padding=True, truncation=True, max_length=self.seq_len,
-                                   return_tensors="pt")
+        ans_encoded = self.tokenizer(
+            csv["answer"].values.tolist(),
+            padding=True,
+            truncation=True,
+            max_length=self.ans_seq_len,
+            return_tensors="pt",
+        )
+        q_encoded = self.tokenizer(
+            csv["question"].values.tolist(), padding=True, truncation=True, max_length=self.seq_len, return_tensors="pt"
+        )
 
         n_samples = len(csv)
         bos_ids = torch.ones(n_samples).reshape(n_samples, 1).type(torch.LongTensor)
@@ -113,31 +122,59 @@ class CSVDataModule(DataModule):
         eos_ids = torch.ones(n_samples).reshape(n_samples, 1).type(torch.LongTensor)
 
         input_ids = torch.cat(
-            [bos_ids * self.bos_id, ans_encoded["input_ids"], ans_del_ids * self.ans_delim_id, q_encoded["input_ids"], eos_ids * self.eos_id],
-            dim=-1)
+            [
+                bos_ids * self.bos_id,
+                ans_encoded["input_ids"],
+                ans_del_ids * self.ans_delim_id,
+                q_encoded["input_ids"],
+                eos_ids * self.eos_id,
+            ],
+            dim=-1,
+        )
 
         att_mask = torch.cat(
-            [bos_ids, ans_encoded["attention_mask"], ans_del_ids, q_encoded["attention_mask"], eos_ids],
-            dim=-1)
+            [bos_ids, ans_encoded["attention_mask"], ans_del_ids, q_encoded["attention_mask"], eos_ids], dim=-1
+        )
 
         dataset = TensorDataset(input_ids, att_mask, deepcopy(input_ids))
+
+        return dataset
+
+    def _create_dataset2(self) -> TensorDataset:
+        csv = pd.read_csv(self.data_path)
+
+        ans_text = self._truncate_str(csv["answer"].values.tolist(), self.ans_seq_len)
+        q_text = self._truncate_str(csv["question"].values.tolist(), self.seq_len)
+
+        samples = [
+            " ".join([SpecialTokens.BOS.value, ans, SpecialTokens.ANS.value, q, SpecialTokens.EOS.value])
+            for ans, q in zip(ans_text, q_text)
+        ]
+
+        samples_encoded = self.tokenizer(samples, padding=True, return_tensors="pt")
+
+        dataset = TensorDataset(
+            samples_encoded["input_ids"], samples_encoded["attention_mask"], deepcopy(samples_encoded["input_ids"])
+        )
 
         return dataset
 
     def _create_dataset(self) -> TensorDataset:
         csv = pd.read_csv(self.data_path)
 
-        ans_text = self._truncate_str(csv["answer"].values.tolist(), self.ans_seq_len)
-        q_text = self._truncate_str(csv["question"].values.tolist(), self.seq_len)
+        ans_text = csv["answer"].values.tolist()
+        q_text = csv["question"].values.tolist()
 
-        samples = [" ".join([SpecialTokens.BOS.value, ans, SpecialTokens.ANS.value, q, SpecialTokens.EOS.value])
-                   for ans, q in zip(ans_text, q_text)]
+        samples = [
+            " ".join([SpecialTokens.BOS.value, ans, SpecialTokens.ANS.value, q, SpecialTokens.EOS.value])
+            for ans, q in zip(ans_text, q_text)
+        ]
 
         samples_encoded = self.tokenizer(samples, padding=True, return_tensors="pt")
 
-        dataset = TensorDataset(samples_encoded["input_ids"],
-                                samples_encoded["attention_mask"],
-                                deepcopy(samples_encoded["input_ids"]))
+        dataset = TensorDataset(
+            samples_encoded["input_ids"], samples_encoded["attention_mask"], deepcopy(samples_encoded["input_ids"])
+        )
 
         return dataset
 
@@ -146,4 +183,3 @@ class CSVDataModule(DataModule):
         text_decoded = self.tokenizer.batch_decode(text_encoded)
 
         return text_decoded
-
