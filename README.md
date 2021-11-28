@@ -2,7 +2,7 @@
 
 # Data
 Data is collected from [open database of CHGK questions](https://db.chgk.info/) and cleaned.  
-Resulted dataset could be found [here](data/dataset_reduced_filtered_super_mega.zip)
+Resulted dataset could be found [here](data/dataset_reduced_filtered_super_mega.zip).
 
 
 # Telegram bot
