@@ -14,7 +14,7 @@ Resulted dataset could be found [here](data/dataset_reduced_filtered_super_mega.
 # Questions generation
 In order to generate questions there is `generate.py` CLI script. From the project root run:
 ```
-PYTHONPATH=. python src/generation/generate.py --model_dir <directory_with_model> --beam_size <beam_size> --max_len <max_seq_len_to_generate> --context <context_to_generate_from>
+PYTHONPATH=. python src/generation/generate.py --model_dir <DIRECTORY_WITH_MODEL> --beam_size <BEAM_SIZE> --max_len <MAX_SEQ_LEN_TO_GENERATE> --context <CONTEXT_TO_GENERATE_FROM>
 ```
 For now generation has only 2 parameters: 
 1. `beam_size` --- number of generated hypothesis
