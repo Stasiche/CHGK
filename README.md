@@ -1,7 +1,7 @@
 # CHGK
 
 # Data
-Data is collected from [open database of CHGK questions](https://db.chgk.info/) and cleanup.  
+Data is collected from [open database of CHGK questions](https://db.chgk.info/) and cleaned.  
 Resulted dataset could be found [here](data/dataset_reduced_filtered_super_mega.zip)
 
 
@@ -52,7 +52,9 @@ For now generation has only 2 parameters:
 
 
 # Contributions
-* A. Kotov: data cleanup, bot structure & testing, theme recognition
-* Lebedev: data collecting & cleanup, bot testing
-* Nikolin: data cleanup, bot testing, theme recognition
-* Semin: data cleanup, bot testing, RU-GPT3Small finetuning, generation implementation
+* A. Kotov: bot structure, theme recognition
+* Lebedev: data collecting
+* Nikolin: theme recognition
+* Semin: RU-GPT3Small finetuning, generation implementation
+
+Everyone contributed equally at the data cleanup and bot testing phases.
