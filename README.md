@@ -14,13 +14,13 @@ Resulted dataset could be found [here](data/dataset_reduced_filtered_super_mega.
 # Questions generation
 In order to generate questions there is `generate.py` CLI script. From the project root run:
 ```
-PYTHONPATH=. python src/generation/generate.py --model_dir %directory_with_model% --beam_size %beam_size% --max_len %max_seq_len_to_generate% --context %context_to_generate_from%
+PYTHONPATH=. python src/generation/generate.py --model_dir <directory_with_model> --beam_size <beam_size> --max_len <max_seq_len_to_generate> --context <context_to_generate_from>
 ```
 For now generation has only 2 parameters: 
 1. `beam_size` --- number of generated hypothesis
 2. `max_len` --- length of a generated question
 
-## Examples (input sequence | continuation)
+## Examples (context | continuation)
 * Согласно известному утверждению, еж - это | не только еж, но и ежиха. А что это за еж?
 * За границей он бывает сопроводительный, | а иногда и предупреждающий. В России он - "второй", а в Германии - первый. Назовите его.
 * Рассказывают, что на съемках фильма | "Броненосец Потемкин" в Москве в конце концов был найден ИКС. В одном из эпизодов фильма ИХ было два. Назовите ИХ.
