@@ -22,6 +22,6 @@ def get_intent_embedding(theme):
         model_dict = rubert(**token)
     return model_dict["last_hidden_state"][:, 0, :].cpu().numpy().astype(float)
 
-rugpt = GPT2SberSmall("/home/breengles/Dropbox/hse/CHGK/bot/nn_models",  # this is some hardcoding magic!
+rugpt = GPT2SberSmall("/home/breengles/Dropbox/projects/CHGK/models",  # this is some hardcoding magic!
                       "sberbank-ai/rugpt3small_based_on_gpt2", "cuda")
 rugpt.eval()
