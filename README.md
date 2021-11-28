@@ -1,4 +1,4 @@
-# CHKG_proj
+# CHGK
 
 # Data
 Data is collected from [open database of CHGK questions](https://db.chgk.info/) and cleanup.  
