@@ -55,9 +55,9 @@ For now generation has only 2 parameters:
 
 
 # Contributions
-* A. Kotov: bot structure, theme recognition
-* Lebedev: data collecting
-* Nikolin: theme recognition
-* Semin: RU-GPT3Small finetuning, generation implementation
+* [A. Kotov](https://github.com/breengles): bot structure, theme recognition
+* [S. Lebedev](https://github.com/Stasiche): data collecting
+* [A. Nikolin](https://github.com/Howuhh): theme recognition
+* [K. Semin](https://github.com/Mogreine): RU-GPT3Small finetuning, generation implementation
 
 Everyone contributed equally at the data cleanup and bot testing phases.
