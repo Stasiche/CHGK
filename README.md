@@ -10,6 +10,18 @@ Resulted dataset could be found [here](data/dataset_reduced_filtered_super_mega.
 * Finetuned RU-GPT3Small for question generation
 * RuBert + KMeans for theme detection
 
+## Examples
+![image](https://user-images.githubusercontent.com/26529547/143784941-751170c7-e0da-4162-a337-d7a62990b0a8.png)  
+![image](https://user-images.githubusercontent.com/26529547/143784949-0124d30e-c8da-4ec9-b4cc-f201a9053299.png)  
+![image](https://user-images.githubusercontent.com/26529547/143784953-436d019d-8c1e-4052-8220-235901b9b2b4.png)  
+![image](https://user-images.githubusercontent.com/26529547/143784961-2cf905a7-6581-45df-b1bf-c7dfb8d7c347.png)  
+![image](https://user-images.githubusercontent.com/26529547/143784966-bd122306-22eb-4e89-b4d6-515f2a5a2f88.png)  
+![image](https://user-images.githubusercontent.com/26529547/143784976-b594abeb-fbdc-4fa1-83fd-e8a41310083a.png)  
+![image](https://user-images.githubusercontent.com/26529547/143784979-7a714099-b8c5-4ee0-aa81-d4ec656efb9a.png)  
+![image](https://user-images.githubusercontent.com/26529547/143784983-9f895827-d5f0-472e-845a-15413a120f56.png)  
+![image](https://user-images.githubusercontent.com/26529547/143784992-df5e3c64-9511-4f1e-802f-f9497a37cc04.png)  
+![image](https://user-images.githubusercontent.com/26529547/143785002-744b211e-af04-493a-95a2-669c88748590.png)  
+
 
 # Questions generation
 In order to generate questions there is `generate.py` CLI script. From the project root run:
@@ -34,16 +46,7 @@ For now generation has only 2 parameters:
 * В Древней Греции считали, что | ЭТО - самое безопасное средство, поскольку обладает свойством, указывавшим на его эффективность при изготовлении оружия, а также с успехом применяется при лечении. Что это?
 * Рассказывают, что на съемках фильма | о жизни в СССР с участием актеров А.Анисимова и В.Кавелина возникли сложности. Съемочная группа долго не могла найти подходящего декоратора. Наконец один из актеров заявил: "Есть только два места, где мы можем поставить что-нибудь, кроме этого, - это... это...". Закончите мысль двумя словами.
 
-![image](https://user-images.githubusercontent.com/26529547/143784941-751170c7-e0da-4162-a337-d7a62990b0a8.png)
-![image](https://user-images.githubusercontent.com/26529547/143784949-0124d30e-c8da-4ec9-b4cc-f201a9053299.png)
-![image](https://user-images.githubusercontent.com/26529547/143784953-436d019d-8c1e-4052-8220-235901b9b2b4.png)
-![image](https://user-images.githubusercontent.com/26529547/143784961-2cf905a7-6581-45df-b1bf-c7dfb8d7c347.png)
-![image](https://user-images.githubusercontent.com/26529547/143784966-bd122306-22eb-4e89-b4d6-515f2a5a2f88.png)
-![image](https://user-images.githubusercontent.com/26529547/143784976-b594abeb-fbdc-4fa1-83fd-e8a41310083a.png)
-![image](https://user-images.githubusercontent.com/26529547/143784979-7a714099-b8c5-4ee0-aa81-d4ec656efb9a.png)
-![image](https://user-images.githubusercontent.com/26529547/143784983-9f895827-d5f0-472e-845a-15413a120f56.png)
-![image](https://user-images.githubusercontent.com/26529547/143784992-df5e3c64-9511-4f1e-802f-f9497a37cc04.png)
-![image](https://user-images.githubusercontent.com/26529547/143785002-744b211e-af04-493a-95a2-669c88748590.png)
+
 
 
 ## Clusters
